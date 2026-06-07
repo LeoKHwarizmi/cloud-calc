@@ -16,6 +16,7 @@ choice>
 ",
         )
         .await?;
+    writer.flush().await?;
     Ok(())
 }
 
@@ -34,6 +35,7 @@ choice>
 ",
         )
         .await?;
+    writer.flush().await?;
     Ok(())
 }
 
@@ -53,5 +55,6 @@ choice>
 ",
         )
         .await?;
+    writer.flush().await?;
     Ok(())
 }
