@@ -1,0 +1,398 @@
+Here you go, Mohammad — a **full project documentation draft**, a **complete phased plan**, and a clear answer to your question about **Rust code structure**.  
+Everything is organized so you can paste it into a README or internal docs.
+
+I’ll keep it structured, technical, and clean — exactly how a real Rust engineer would document a production service.
+
+---
+
+# ⭐ **cloud‑calc — Project Documentation (Full Draft)**  
+*(You can use this as your official README or architecture doc.)*
+
+---
+
+# 🟦 **1. Project Overview**
+**cloud‑calc** is a multi‑user, terminal‑based SaaS calculator service.  
+Users connect via **TCP**, authenticate, and access:
+
+- A calculator REPL  
+- Usage tracking (CPU, RAM, calculations)  
+- Calculation history  
+- Account info  
+
+Admins have full CRUD access to users and system monitoring.
+
+The project is designed to be:
+
+- Minimal  
+- Scalable  
+- Easy to extend  
+- Free of unnecessary dependencies  
+- Production‑ready on Fly.io  
+
+---
+
+# 🟩 **2. Architecture Summary**
+
+### ✔ **One VM for the Rust app**
+- Runs the TCP server  
+- Handles sessions  
+- Executes calculations  
+- Tracks usage  
+- Communicates with PostgreSQL  
+
+### ✔ **One VM for PostgreSQL (Fly.io managed)**
+- Stores users  
+- Stores history  
+- Stores usage  
+- Stores roles  
+- Stores billing data  
+
+### ✔ **Protocol: TCP**
+- Perfect for REPL  
+- Low overhead  
+- Real‑time interaction  
+- No HTTP complexity  
+
+### ✔ **Async runtime: Tokio**
+- Handles thousands of concurrent sessions  
+- Lightweight and efficient  
+
+---
+
+# 🟧 **3. Folder Structure (Final)**
+
+```
+cloud-calc/
+ ├── Cargo.toml
+ └── src/
+      ├── main.rs            # entry point
+      ├── server.rs          # TCP listener
+      ├── session.rs         # session state machine
+      ├── menu.rs            # UI menus (welcome, user panel, admin panel)
+      ├── auth.rs            # login/register/password hashing
+      ├── db.rs              # SQLx queries
+      ├── calculator.rs      # math evaluation (meval)
+      ├── admin.rs           # admin commands (CRUD, usage, history)
+      ├── user.rs            # CPU/RAM tracking + time formatting + helpers
+      └── utils.rs           # optional helpers
+```
+
+This is a **flat, clean, scalable** Rust project layout.
+
+---
+
+# 🟨 **4. All Panels (Complete UI)**
+
+## 🟦 Welcome Panel
+```
+========================================
+            Welcome to cloud-calc
+========================================
+1) Login
+2) Register
+3) Quit
+choice>
+```
+
+## 🟩 User Panel
+```
+========================================
+             User Panel
+========================================
+1) Calculator
+2) My Usage
+3) My History
+4) Account Info
+5) Logout
+choice>
+```
+
+## 🟧 Calculator REPL
+```
+calc> 2 + 2
+4
+calc> exit
+```
+
+## 🟨 My Usage
+```
+--- My Usage ---
+CPU: 0.032 sec
+RAM: 1.2 MB
+Calculations: 42
+Billing: $0.0021
+```
+
+## 🟫 My History
+```
+--- My History ---
+1) 2 + 2 = 4
+2) sin(3.14) = 0.001592
+```
+
+## 🟪 Account Info
+```
+--- Account Info ---
+Username: mohammad
+Role: user
+Member since: 2026-06-07
+```
+
+---
+
+# 🟥 Admin Panels
+
+## Admin Menu
+```
+========================================
+             Admin Panel
+========================================
+1) List Users
+2) Create User
+3) Update User Role
+4) Delete User
+5) View User Usage
+6) View User History
+7) System Stats
+8) Logout
+choice>
+```
+
+## List Users
+```
+--- List Users ---
+ID   Username   Role
+1    mohammad   admin
+2    ali        user
+```
+
+## Create User
+```
+--- Create User ---
+Enter username:
+Enter password:
+Enter role (user/admin):
+```
+
+## Update User Role
+```
+--- Update User Role ---
+Enter username:
+Current role: user
+Enter new role:
+```
+
+## Delete User
+```
+--- Delete User ---
+Enter username:
+Are you sure? (yes/no)
+```
+
+## View User Usage
+```
+--- User Usage ---
+CPU: 0.032 sec
+RAM: 1.2 MB
+Calculations: 42
+```
+
+## View User History
+```
+--- User History ---
+1) 2 + 2 = 4
+```
+
+## System Stats
+```
+--- System Stats ---
+Active sessions: 3
+Total users: 12
+Total calculations today: 184
+```
+
+---
+
+# 🟦 **5. Libraries Used (Final List)**
+
+### Networking  
+- **tokio**
+
+### Database  
+- **sqlx**
+
+### Password hashing  
+- **argon2**
+
+### Math  
+- **meval**
+
+### CPU/RAM usage  
+- **procfs**
+
+### Logging  
+- **tracing**
+
+### Optional  
+- **serde**  
+- **config**  
+
+This is the **minimal, stable, production‑ready** set.
+
+---
+
+# 🟩 **6. How Users Connect to cloud‑calc**
+
+### Linux/macOS:
+```
+nc cloud-calc.fly.dev 9000
+```
+
+### Windows:
+```
+nc cloud-calc.fly.dev 9000
+```
+
+### Telnet:
+```
+telnet cloud-calc.fly.dev 9000
+```
+
+### Curl:
+```
+curl telnet://cloud-calc.fly.dev:9000
+```
+
+---
+
+# ⭐ **7. Project Phasing (Step‑by‑Step Implementation Plan)**  
+This is the cleanest way to build cloud‑calc without confusion.
+
+---
+
+## 🟦 **Phase 1 — Core Infrastructure**
+- Create project  
+- Add dependencies  
+- Implement `main.rs`  
+- Implement `server.rs` (TCP listener)  
+- Implement session loop  
+
+---
+
+## 🟩 **Phase 2 — Database Layer**
+- Create PostgreSQL on Fly.io  
+- Implement `db.rs`  
+- Create tables:
+  - users  
+  - history  
+  - usage  
+  - sessions  
+
+---
+
+## 🟧 **Phase 3 — Authentication**
+- Implement `auth.rs`  
+- Register  
+- Login  
+- Password hashing (argon2)  
+
+---
+
+## 🟨 **Phase 4 — Menus**
+- Implement `menu.rs`  
+- Welcome menu  
+- User menu  
+- Admin menu  
+
+---
+
+## 🟫 **Phase 5 — Calculator**
+- Implement `calculator.rs`  
+- Math REPL  
+- History logging  
+- Usage tracking  
+
+---
+
+## 🟪 **Phase 6 — Admin Features**
+- CRUD  
+- Usage viewer  
+- History viewer  
+- System stats  
+
+---
+
+## 🟥 **Phase 7 — Deployment**
+- Deploy to Fly.io  
+- Attach PostgreSQL  
+- Set environment variables  
+- Test remote connections  
+
+---
+
+# ⭐ **8. What Rust Code Structure Should You Use?**
+
+Use the **modular flat structure** you already chose:
+
+### ✔ One module per responsibility  
+### ✔ No nested folders  
+### ✔ No frameworks  
+### ✔ No traits unless needed  
+### ✔ Simple functions, simple structs  
+
+This is the best structure for:
+
+- clarity  
+- maintainability  
+- debugging  
+- scaling  
+- async TCP servers  
+
+This is the structure I recommend:
+
+```
+src/
+ ├── main.rs
+ ├── server.rs
+ ├── session.rs
+ ├── menu.rs
+ ├── auth.rs
+ ├── db.rs
+ ├── calculator.rs
+ ├── admin.rs
+ ├── user.rs
+ └── utils.rs
+```
+
+This is **exactly** how a professional Rust engineer would structure a TCP SaaS.
+
+---
+
+# ⭐ **9. Final Notes (Important Tips)**
+
+### ✔ You can expand cloud‑calc without new libraries  
+Billing, premium tiers, analytics — all possible with your current crates.
+
+### ✔ TCP is the perfect protocol  
+No need for HTTP or web frameworks.
+
+### ✔ Fly.io PostgreSQL is the correct choice  
+Don’t install Postgres manually.
+
+### ✔ Your admin panel is minimal and correct  
+CRUD + usage + history + stats.
+
+### ✔ Your project is future‑proof  
+You can add features without breaking anything.
+
+---
+
+# 👉 **Next Step**
+Tell me which part you want to implement first:
+
+- **main.rs + server.rs**  
+- **menu.rs**  
+- **session.rs**  
+- **db.rs**  
+
+Just say the file name and I’ll generate it.
