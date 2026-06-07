@@ -1,107 +1,89 @@
 // src/session.rs
 use anyhow::Result;
-use tokio::net::TcpStream;
-use tokio::io::{AsyncWriteExt, AsyncBufReadExt, BufReader};
+use axum::extract::ws::{WebSocket, Message};
+use futures_util::StreamExt;
 
 use crate::menu;
 use crate::db::Db;
 use crate::auth::{AuthService, AuthUser};
-use crate::calculator::run_calculator;
+use crate::calculator::run_calculator_ws;
 
-pub async fn handle_client(stream: TcpStream, db: Db) -> Result<()> {
-    let (reader, mut writer) = stream.into_split();
-    let mut reader = BufReader::new(reader);
-    let mut line = String::new();
-
+// ---------------------------------------------------------
+// MAIN WS SESSION
+// ---------------------------------------------------------
+pub async fn handle_ws_session(socket: &mut WebSocket, db: Db) -> Result<()> {
     let auth = AuthService::new(db.clone());
 
-    menu::print_welcome(&mut writer).await?;
+    send(socket,
+"========================================
+Welcome to cloud-calc
+========================================
+1) Login
+2) Register
+3) Quit
+choice> ").await?;
 
     loop {
-        line.clear();
-        let bytes = reader.read_line(&mut line).await?;
-        if bytes == 0 {
-            break;
-        }
+        let choice = recv(socket).await?;
 
-        let choice = line.trim();
-
-        match choice {
-            // -----------------------------
+        match choice.as_str() {
             // LOGIN
-            // -----------------------------
             "1" => {
-                writer.write_all(b"--- Login ---\nUsername: ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let username = line.trim().to_string();
+                send(socket, "--- Login ---\nUsername: ").await?;
+                let username = recv(socket).await?;
 
-                writer.write_all(b"Password: ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let password = line.trim().to_string();
+                send(socket, "Password: ").await?;
+                let password = recv(socket).await?;
 
                 match auth.login_user(&username, &password).await {
                     Ok(user) => {
-                        writer
-                            .write_all(
-                                format!("Login successful! Role: {}\n", user.role).as_bytes(),
-                            )
-                            .await?;
+                        send(socket, &format!("Login successful! Role: {}\n", user.role)).await?;
 
                         if user.role == "admin" {
-                            admin_panel(&mut writer, &mut reader, db.clone(), user).await?;
+                            admin_panel_ws(socket, db.clone(), user).await?;
                         } else {
-                            user_panel(&mut writer, &mut reader, db.clone(), user.id).await?;
+                            user_panel_ws(socket, db.clone(), user.id).await?;
                         }
 
-                        menu::print_welcome(&mut writer).await?;
+                        send(socket,
+"========================================
+Welcome to cloud-calc
+1) Login
+2) Register
+3) Quit
+choice> ").await?;
                     }
                     Err(e) => {
-                        writer
-                            .write_all(format!("Login failed: {e}\nchoice>\n").as_bytes())
-                            .await?;
+                        send(socket, &format!("Login failed: {e}\nchoice> ")).await?;
                     }
                 }
             }
 
-            // -----------------------------
             // REGISTER
-            // -----------------------------
             "2" => {
-                writer.write_all(b"--- Register ---\nChoose username: ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let username = line.trim().to_string();
+                send(socket, "--- Register ---\nChoose username: ").await?;
+                let username = recv(socket).await?;
 
-                writer.write_all(b"Choose password: ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let password = line.trim().to_string();
+                send(socket, "Choose password: ").await?;
+                let password = recv(socket).await?;
 
-                writer.write_all(b"Confirm password: ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let confirm = line.trim().to_string();
+                send(socket, "Confirm password: ").await?;
+                let confirm = recv(socket).await?;
 
                 match auth.register_user(&username, &password, &confirm).await {
-                    Ok(_) => writer.write_all(b"Account created!\nchoice>\n").await?,
-                    Err(e) => writer
-                        .write_all(format!("Register failed: {e}\nchoice>\n").as_bytes())
-                        .await?,
+                    Ok(_) => send(socket, "Account created!\nchoice> ").await?,
+                    Err(e) => send(socket, &format!("Register failed: {e}\nchoice> ")).await?,
                 }
             }
 
-            // -----------------------------
             // QUIT
-            // -----------------------------
             "3" => {
-                writer.write_all(b"Goodbye.\n").await?;
+                send(socket, "Goodbye.\n").await?;
                 break;
             }
 
             _ => {
-                writer.write_all(b"Invalid choice.\nchoice>\n").await?;
+                send(socket, "Invalid choice.\nchoice> ").await?;
             }
         }
     }
@@ -109,66 +91,61 @@ pub async fn handle_client(stream: TcpStream, db: Db) -> Result<()> {
     Ok(())
 }
 
-// -----------------------------
+// ---------------------------------------------------------
 // USER PANEL
-// -----------------------------
-async fn user_panel(
-    writer: &mut tokio::net::tcp::OwnedWriteHalf,
-    reader: &mut BufReader<tokio::net::tcp::OwnedReadHalf>,
+// ---------------------------------------------------------
+async fn user_panel_ws(
+    socket: &mut WebSocket,
     db: Db,
     user_id: i32,
 ) -> Result<()> {
     loop {
-        menu::print_user_panel(writer).await?;
+        send(socket,
+"========================================
+User Panel
+========================================
+1) Calculator
+2) My Usage
+3) My History
+4) Account Info
+5) Logout
+choice> ").await?;
 
-        let mut line = String::new();
-        reader.read_line(&mut line).await?;
-        let choice = line.trim();
+        let choice = recv(socket).await?;
 
-        match choice {
-            // CALCULATOR (now with CPU/RAM tracking)
+        match choice.as_str() {
+            // CALCULATOR
             "1" => {
-                run_calculator(writer, reader, db.clone(), user_id).await?;
+                run_calculator_ws(socket, db.clone(), user_id).await?;
             }
 
             // USAGE
             "2" => {
                 let (cpu, ram, count) = db.get_usage(user_id).await?;
-                writer
-                    .write_all(
-                        format!(
-                            "CPU: {cpu} sec\nRAM: {ram} bytes\nCalculations: {count}\n"
-                        )
-                        .as_bytes(),
-                    )
-                    .await?;
+                send(socket, &format!("CPU: {cpu} sec\nRAM: {ram} bytes\nCalculations: {count}\n")).await?;
             }
 
             // HISTORY
             "3" => {
                 let history = db.get_history(user_id).await?;
                 for (expr, res) in history {
-                    writer
-                        .write_all(format!("{expr} = {res}\n").as_bytes())
-                        .await?;
+                    send(socket, &format!("{expr} = {res}\n")).await?;
                 }
             }
 
             // ACCOUNT INFO
             "4" => {
-                writer
-                    .write_all(format!("Your user ID: {user_id}\n").as_bytes())
-                    .await?;
+                send(socket, &format!("Your user ID: {user_id}\n")).await?;
             }
 
             // LOGOUT
             "5" => {
-                writer.write_all(b"Logging out...\n").await?;
+                send(socket, "Logging out...\n").await?;
                 break;
             }
 
             _ => {
-                writer.write_all(b"Invalid choice.\n").await?;
+                send(socket, "Invalid choice.\n").await?;
             }
         }
     }
@@ -176,112 +153,115 @@ async fn user_panel(
     Ok(())
 }
 
-// -----------------------------
+// ---------------------------------------------------------
 // ADMIN PANEL
-// -----------------------------
-async fn admin_panel(
-    writer: &mut tokio::net::tcp::OwnedWriteHalf,
-    reader: &mut BufReader<tokio::net::tcp::OwnedReadHalf>,
+// ---------------------------------------------------------
+async fn admin_panel_ws(
+    socket: &mut WebSocket,
     db: Db,
     _admin: AuthUser,
 ) -> Result<()> {
     loop {
-        menu::print_admin_panel(writer).await?;
+        send(socket,
+"========================================
+Admin Panel
+========================================
+1) List users
+2) Create user
+3) Change user role
+4) Delete user
+5) View usage stats
+6) Back
+choice> ").await?;
 
-        let mut line = String::new();
-        reader.read_line(&mut line).await?;
-        let choice = line.trim();
+        let choice = recv(socket).await?;
 
-        match choice {
+        match choice.as_str() {
             // LIST USERS
             "1" => {
                 let users = db.list_users().await?;
                 for (id, username, role) in users {
-                    writer
-                        .write_all(format!("ID: {id}, {username} ({role})\n").as_bytes())
-                        .await?;
+                    send(socket, &format!("ID: {id}, {username} ({role})\n")).await?;
                 }
             }
 
             // CREATE USER
             "2" => {
-                writer.write_all(b"New username: ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let username = line.trim().to_string();
+                send(socket, "New username: ").await?;
+                let username = recv(socket).await?;
 
-                writer.write_all(b"Password: ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let password = line.trim().to_string();
+                send(socket, "Password: ").await?;
+                let password = recv(socket).await?;
 
-                writer.write_all(b"Role (user/admin): ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let role = line.trim().to_string();
+                send(socket, "Role (user/admin): ").await?;
+                let role = recv(socket).await?;
 
-                let auth = AuthService::new(db.clone());
+                let auth = crate::auth::AuthService::new(db.clone());
                 match auth.admin_create_user(&username, &password, &role).await {
-                    Ok(_) => writer.write_all(b"User created.\n").await?,
-                    Err(e) => writer
-                        .write_all(format!("Failed: {e}\n").as_bytes())
-                        .await?,
+                    Ok(_) => send(socket, "User created.\n").await?,
+                    Err(e) => send(socket, &format!("Failed: {e}\n")).await?,
                 }
             }
 
             // CHANGE ROLE
             "3" => {
-                writer.write_all(b"User ID to change role: ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let id: i32 = line.trim().parse().unwrap_or(-1);
+                send(socket, "User ID to change role: ").await?;
+                let id: i32 = recv(socket).await?.parse().unwrap_or(-1);
 
-                writer.write_all(b"New role (user/admin): ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let role = line.trim().to_string();
+                send(socket, "New role (user/admin): ").await?;
+                let role = recv(socket).await?;
 
                 db.update_user_role(id, &role).await?;
-                writer.write_all(b"Role updated.\n").await?;
+                send(socket, "Role updated.\n").await?;
             }
 
             // DELETE USER
             "4" => {
-                writer.write_all(b"User ID to delete: ").await?;
-                line.clear();
-                reader.read_line(&mut line).await?;
-                let id: i32 = line.trim().parse().unwrap_or(-1);
+                send(socket, "User ID to delete: ").await?;
+                let id: i32 = recv(socket).await?.parse().unwrap_or(-1);
 
                 db.delete_user(id).await?;
-                writer.write_all(b"User deleted.\n").await?;
+                send(socket, "User deleted.\n").await?;
             }
 
-            // VIEW USAGE STATS
+            // VIEW USAGE
             "5" => {
                 let usage = db.get_all_usage().await?;
                 for (username, cpu, ram, count) in usage {
-                    writer
-                        .write_all(
-                            format!(
-                                "{username}: CPU={cpu} sec, RAM={ram} bytes, Calcs={count}\n"
-                            )
-                            .as_bytes(),
-                        )
-                        .await?;
+                    send(socket, &format!("{username}: CPU={cpu} sec, RAM={ram} bytes, Calcs={count}\n")).await?;
                 }
             }
 
             // BACK
             "6" => {
-                writer.write_all(b"Back to main menu.\n").await?;
+                send(socket, "Back to main menu.\n").await?;
                 break;
             }
 
             _ => {
-                writer.write_all(b"Invalid choice.\n").await?;
+                send(socket, "Invalid choice.\n").await?;
             }
         }
     }
 
     Ok(())
+}
+
+// ---------------------------------------------------------
+// WebSocket helpers
+// ---------------------------------------------------------
+async fn send(socket: &mut WebSocket, text: &str) -> Result<()> {
+    socket.send(Message::Text(text.to_string())).await?;
+    Ok(())
+}
+
+async fn recv(socket: &mut WebSocket) -> Result<String> {
+    while let Some(msg) = socket.next().await {
+        match msg? {
+            Message::Text(t) => return Ok(t.trim().to_string()),
+            Message::Close(_) => return Ok("".into()),
+            _ => {}
+        }
+    }
+    Ok("".into())
 }

@@ -17,5 +17,9 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let db = Db::connect_from_env().await?;
-    server::run_server(db).await
+
+    // Only WebSocket server (Render Web Service)
+    server::run_ws_server(db.clone()).await?;
+
+    Ok(())
 }
