@@ -6,14 +6,13 @@ use tokio::net::tcp::OwnedWriteHalf;
 pub async fn print_welcome(writer: &mut OwnedWriteHalf) -> Result<()> {
     writer
         .write_all(
-            b"========================================
-Welcome to cloud-calc
-========================================
-1) Login
-2) Register
-3) Quit
-choice>
-",
+            b"========================================\r\n\
+Welcome to cloud-calc\r\n\
+========================================\r\n\
+1) Login\r\n\
+2) Register\r\n\
+3) Quit\r\n\
+choice> ",
         )
         .await?;
     writer.flush().await?;
@@ -23,16 +22,15 @@ choice>
 pub async fn print_user_panel(writer: &mut OwnedWriteHalf) -> Result<()> {
     writer
         .write_all(
-            b"========================================
-User Panel
-========================================
-1) Calculator
-2) My Usage
-3) My History
-4) Account Info
-5) Logout
-choice>
-",
+            b"========================================\r\n\
+User Panel\r\n\
+========================================\r\n\
+1) Calculator\r\n\
+2) My Usage\r\n\
+3) My History\r\n\
+4) Account Info\r\n\
+5) Logout\r\n\
+choice> ",
         )
         .await?;
     writer.flush().await?;
@@ -42,17 +40,16 @@ choice>
 pub async fn print_admin_panel(writer: &mut OwnedWriteHalf) -> Result<()> {
     writer
         .write_all(
-            b"========================================
-Admin Panel
-========================================
-1) List users
-2) Create user
-3) Change user role
-4) Delete user
-5) View usage stats
-6) Back
-choice>
-",
+            b"========================================\r\n\
+Admin Panel\r\n\
+========================================\r\n\
+1) List users\r\n\
+2) Create user\r\n\
+3) Change user role\r\n\
+4) Delete user\r\n\
+5) View usage stats\r\n\
+6) Back\r\n\
+choice> ",
         )
         .await?;
     writer.flush().await?;
